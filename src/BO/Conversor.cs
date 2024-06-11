@@ -19,6 +19,7 @@ namespace ConversorAgora.BO
             this.sourceURL = sourceURL;
             this.targetPath = targetPath;
             cabecalho = $"#Version: 1.0\r\n#Date: {DateTime.Now}\r\n#Fields: provider http-method status-code uri-path time-taken response-size cache-status";
+            Validar();
         }
 
         public void ConverterLog()
@@ -34,9 +35,22 @@ namespace ConversorAgora.BO
             {
                 output += $"\r\n{log.Provider} {log.HttpMethod} {log.StatusCode} {log.UriPath} {log.TimeTaken} {log.ResponseSize} {log.CacheStatus}";
             }
-            
-            using StreamWriter outputWriter = new(targetPath);
-            outputWriter.Write(output);
+
+            try
+            {
+                using StreamWriter outputWriter = new(targetPath);
+                outputWriter.Write(output);
+            }
+            catch (Exception e)
+            {
+                switch (e.GetType().ToString())
+                {
+                    case "System.IO.DirectoryNotFoundException":
+                        throw new Exception("Não foi possível criar o arquivo no caminho especificado, verifique o parâmetro e tente novamente.");
+                    default:
+                        throw new Exception($"Erro não identificado, contate o administrador: \r\n{e.Message}");
+                }
+            }
         }
 
         public void CarregarLogMinhaCDN()
@@ -56,20 +70,35 @@ namespace ConversorAgora.BO
                 string timeTaken = matches[0].Groups[6].Value;
                 string responseSize = matches[0].Groups[1].Value;
                 string cacheStatus = matches[0].Groups[3].Value;
-                Log log = new($"\"{provider}\"", httpMethod, statusCode, uriPath, timeTaken, responseSize, cacheStatus);
-                logs.Add(log);
+                logs.Add(new($"\"{provider}\"", httpMethod, statusCode, uriPath, timeTaken, responseSize, cacheStatus));
             }
         }
 
         protected override void Validar()
         {
             if (string.IsNullOrEmpty(provider)) Erros.RegistrarErro("Provedor inválido.");
-            if (!Path.Exists(sourceURL)) Erros.RegistrarErro("Caminho do arquivo fonte inválido.");
-            if (string.IsNullOrEmpty(targetPath)) Erros.RegistrarErro("Caminho do arquivo alvo inválido.");
+            ValidarArquivoFonte();
+            if (Uri.IsWellFormedUriString(targetPath, UriKind.Relative)) Erros.RegistrarErro("Caminho do arquivo alvo inválido.");
+        }
 
+        private void ValidarArquivoFonte()
+        {
+            if (Path.Exists(sourceURL))
+            {
+                using StreamReader sr = new(sourceURL);
+                if (string.IsNullOrEmpty(sr.ReadToEnd())) Erros.RegistrarErro("Arquivo informado está vazio.");
+            }
+            else
+            {
+                Erros.RegistrarErro("Caminho do arquivo fonte inválido.");
+            }
+        }
+
+        public void ValidarLogs()
+        {
             foreach (Log log in logs)
             {
-                if (log.EhValido) Erros.RegistrarErro(log.Erros.Sumario);
+                if (!log.EhValido) Erros.RegistrarErro(log.Erros.Sumario);
             }
         }
     }

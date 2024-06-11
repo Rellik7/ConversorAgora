@@ -33,6 +33,7 @@ namespace ConversorAgora.Model
             TimeTaken = timeTaken;
             ResponseSize = responseSize;
             CacheStatus = cacheStatus;
+            Validar();
         }
 
         protected override void Validar()
