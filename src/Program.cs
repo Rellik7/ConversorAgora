@@ -3,11 +3,7 @@ using ConversorAgora.Model;
 
 try
 {
-    if (!ValidaArgumentos())
-    {
-        Console.WriteLine("Argumentos inválidos");
-        return;
-    }
+    if (!ValidaArgumentos()) throw new Exception("Argumentos inválidos");
 
     string sourceURL = args.First();
     string targetPath = args.Last();
