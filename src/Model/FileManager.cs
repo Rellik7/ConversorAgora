@@ -9,9 +9,9 @@ namespace ConversorAgora.Model
 {
     public class FileManager : IFileManager
     {
-        public StreamReader StreamReader(string path)
+        public StreamReader StreamReader(Stream content)
         {
-            return new System.IO.StreamReader(path);
+            return new System.IO.StreamReader(content);
         }
 
         public StreamWriter StreamWriter(string path)

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Moq.Protected;
 
 namespace ConversorAgora.Test.BO
 {
@@ -17,7 +18,7 @@ namespace ConversorAgora.Test.BO
         public void JogaExcecaoQuandoNaoEPossivelCriarCaminhoAlvo()
         {
             string provider = "MinhaCDN";
-            string sourceURL = @"C:\";
+            string sourceURL = @"https://input-01.txt";
             string targetPath = @"Z:\Teste.txt";
 
             using AutoMock mock = AutoMock.GetLoose();
@@ -25,13 +26,13 @@ namespace ConversorAgora.Test.BO
             byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
             MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
             mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<string>()))
+                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
                 .Returns(() => new StreamReader(mockMemoryStream));
             mock.Mock<IFileManager>()
                 .Setup(fileManager => fileManager.StreamWriter(targetPath))
                 .Returns(() => new StreamWriter(targetPath));
 
-            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>());
+            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), ConversorConstrutor.GetMockClient(sourceURL));
 
             Assert.Throws<ArgumentException>(() => conversor.ConverterLog());
         }

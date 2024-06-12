@@ -6,16 +6,18 @@ namespace ConversorAgora.BO
 {
     public class Conversor: Valida
     {
-        IFileManager fileManager;
+        private readonly IFileManager fileManager;
+        private readonly HttpClient sourceClient;
         private readonly string provider;
         private readonly string sourceURL;
         private readonly string targetPath;
         private readonly List<Log> logs;
         private readonly string cabecalho;
 
-        public Conversor(string provider, string sourceURL, string targetPath, IFileManager fileManager)
+        public Conversor(string provider, string sourceURL, string targetPath, IFileManager fileManager, HttpClient sourceClient)
         {
             this.fileManager = fileManager;
+            this.sourceClient = sourceClient;
             logs = new List<Log>();
             this.provider = provider;
             this.sourceURL = sourceURL;
@@ -58,7 +60,7 @@ namespace ConversorAgora.BO
 
         public void CarregarLogMinhaCDN()
         {
-            using var sr = fileManager.StreamReader(sourceURL);
+            using var sr = fileManager.StreamReader(GetSourceContent());
             while(!sr.EndOfStream)
             {
                 string? line = sr.ReadLine();
@@ -77,25 +79,37 @@ namespace ConversorAgora.BO
             }
         }
 
+        private Stream GetSourceContent()
+        {
+            HttpResponseMessage content = sourceClient.GetAsync(sourceURL).Result;
+            return content.Content.ReadAsStream();
+        }
+
         protected override void Validar()
         {
             if (string.IsNullOrEmpty(provider)) Erros.RegistrarErro("Provedor inválido.");
 
-            if (Path.Exists(sourceURL))
-            {
-                ValidarArquivoVazio();
-            }
-            else
-            {
-                Erros.RegistrarErro("Caminho do arquivo fonte inválido.");
-            }
+            if (ValidarSourceURL()) ValidarArquivoVazio();
 
             if (string.IsNullOrEmpty(targetPath)) Erros.RegistrarErro("Caminho do arquivo alvo inválido.");
         }
 
+        private bool ValidarSourceURL()
+        {
+            try
+            {
+                return GetSourceContent != null;
+            }
+            catch (Exception)
+            {
+                Erros.RegistrarErro("URL do arquivo fonte inválido.");
+                return false;
+            }
+        }
+
         private void ValidarArquivoVazio()
         {
-            using var sr = fileManager.StreamReader(sourceURL);
+            using var sr = fileManager.StreamReader(GetSourceContent());
             if (string.IsNullOrEmpty(sr.ReadToEnd())) Erros.RegistrarErro("Arquivo informado está vazio.");
         }
 

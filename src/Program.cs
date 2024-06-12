@@ -12,8 +12,9 @@ try
     string sourceURL = args.First();
     string targetPath = args.Last();
     FileManager fileManager = new();
+    HttpClient httpClient = new();
 
-    Conversor conversor = new("MINHA CDN", sourceURL, targetPath, fileManager);
+    Conversor conversor = new("MINHA CDN", sourceURL, targetPath, fileManager, httpClient);
 
     if (!conversor.EhValido) throw new Exception(conversor.Erros.Sumario);
 

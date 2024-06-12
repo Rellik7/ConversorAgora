@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace ConversorAgora.Utils
 {
-    public interface IFileManager
+    public interface IRequestManager
     {
-        StreamReader StreamReader(Stream content);
-        StreamWriter StreamWriter(string path);
+        HttpClient HttpClient();
     }
 }

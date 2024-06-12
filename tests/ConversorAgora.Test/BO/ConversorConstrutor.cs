@@ -2,6 +2,7 @@
 using ConversorAgora.BO;
 using ConversorAgora.Utils;
 using Moq;
+using Moq.Protected;
 using System.Text;
 
 namespace ConversorAgora.Test.BO
@@ -9,13 +10,13 @@ namespace ConversorAgora.Test.BO
     public class ConversorConstrutor
     {
         [Theory]
-        [InlineData("MINHA CDN", @"C:\", @"C:\", true)]
-        [InlineData("", @"C:\", @"C:\", false)]
-        [InlineData(null, @"C:\", @"C:\", false)]
+        [InlineData("MINHA CDN", @"https://input-01.txt", @"C:\", true)]
+        [InlineData("", @"https://input-01.txt", @"C:\", false)]
+        [InlineData(null, @"https://input-01.txt", @"C:\", false)]
         [InlineData("MINHA CDN", "", @"C:\", false)]
         [InlineData("MINHA CDN", null, @"C:\", false)]
-        [InlineData("MINHA CDN", @"C:\", "", false)]
-        [InlineData("MINHA CDN", @"C:\", null, false)]
+        [InlineData("MINHA CDN", @"https://input-01.txt", "", false)]
+        [InlineData("MINHA CDN", @"https://input-01.txt", null, false)]
         public void RetornaEhValidoDeAcordoComDadosDeEntrada(string provider, string sourceURL, string targetPath, bool validacao)
         {
             using AutoMock mock = AutoMock.GetLoose();
@@ -23,10 +24,10 @@ namespace ConversorAgora.Test.BO
             byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
             MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
             mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<string>()))
+                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
                 .Returns(() => new StreamReader(mockMemoryStream));
 
-            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>());
+            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), GetMockClient(sourceURL));
 
             Assert.Equal(validacao, conversor.EhValido);
         }
@@ -41,13 +42,13 @@ namespace ConversorAgora.Test.BO
             byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
             MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
             mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<string>()))
+                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
                 .Returns(() => new StreamReader(mockMemoryStream));
 
             string sourceURL = @"C:\";
             string targetPath = @"C\Git\output-01.txt";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>());
+            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), GetMockClient(sourceURL));
 
             Assert.Contains("Provedor inválido.", conversor.Erros.Sumario);
         }
@@ -61,7 +62,7 @@ namespace ConversorAgora.Test.BO
             string provider = "MINHA CDN";
             string targetPath = @"C:\";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, null);
+            Conversor conversor = new(provider, sourceURL, targetPath, null, GetMockClient(sourceURL));
 
             Assert.Contains("Caminho do arquivo fonte inválido.", conversor.Erros.Sumario);
         }
@@ -74,14 +75,14 @@ namespace ConversorAgora.Test.BO
             byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
             MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
             mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<string>()))
+                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
                 .Returns(() => new StreamReader(mockMemoryStream));
 
             string provider = "MINHA CDN";
             string sourceURL = "";
             string targetPath = @"C:\";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, null);
+            Conversor conversor = new(provider, sourceURL, targetPath, null, GetMockClient(sourceURL));
 
             Assert.Contains("Caminho do arquivo fonte inválido.", conversor.Erros.Sumario);
         }
@@ -92,11 +93,32 @@ namespace ConversorAgora.Test.BO
         public void RetornaMensagemDeErroDeTargetPathInvalidoQuandoTargetPathNuloOuVazio(string targetPath)
         {
             string provider = "MINHA CDN";
-            string sourceURL = @"C\";
+            string sourceURL = @"https://input-01.txt";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, null);
+            Conversor conversor = new(provider, sourceURL, targetPath, null, GetMockClient(sourceURL));
 
             Assert.Contains("Caminho do arquivo alvo inválido.", conversor.Erros.Sumario);
+        }
+
+        public static HttpClient GetMockClient(string sourceURL)
+        {
+            Mock<HttpMessageHandler> httpMessageHandlerMock = new Mock<HttpMessageHandler>();
+
+            HttpResponseMessage httpResponseMessage = new()
+            {
+                Content = new StringContent("312|200|HIT|\"GET /robots.txt HTTP/1.1\"|100.2")
+            };
+
+            httpMessageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(httpResponseMessage);
+
+            return new HttpClient(httpMessageHandlerMock.Object)
+            {
+                BaseAddress = new System.Uri(sourceURL)
+            };
         }
     }
 }
