@@ -32,7 +32,7 @@ namespace ConversorAgora.Test.BO
                 .Setup(fileManager => fileManager.StreamWriter(targetPath))
                 .Returns(() => new StreamWriter(targetPath));
 
-            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), ConversorConstrutor.GetMockClient(sourceURL));
+            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), ConversorConstrutor.GetClientMock(sourceURL));
 
             Assert.Throws<ArgumentException>(() => conversor.ConverterLog());
         }

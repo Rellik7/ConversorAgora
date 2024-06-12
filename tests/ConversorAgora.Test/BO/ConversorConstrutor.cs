@@ -19,15 +19,9 @@ namespace ConversorAgora.Test.BO
         [InlineData("MINHA CDN", @"https://input-01.txt", null, false)]
         public void RetornaEhValidoDeAcordoComDadosDeEntrada(string provider, string sourceURL, string targetPath, bool validacao)
         {
-            using AutoMock mock = AutoMock.GetLoose();
-            string mockFileContent = "312|200|HIT|\"GET /robots.txt HTTP/1.1\"|100.2";
-            byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
-            MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
-            mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
-                .Returns(() => new StreamReader(mockMemoryStream));
+            using AutoMock mock = GetFileManagerMock("312|200|HIT|\"GET /robots.txt HTTP/1.1\"|100.2");
 
-            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), GetMockClient(sourceURL));
+            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), GetClientMock(sourceURL));
 
             Assert.Equal(validacao, conversor.EhValido);
         }
@@ -37,18 +31,12 @@ namespace ConversorAgora.Test.BO
         [InlineData(null)]
         public void RetornaMensagemDeErroDeProviderInvalidoQuandoProviderNuloOuVazio(string provider)
         {
-            using AutoMock mock = AutoMock.GetLoose();
-            string mockFileContent = "312|200|HIT|\"GET /robots.txt HTTP/1.1\"|100.2";
-            byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
-            MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
-            mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
-                .Returns(() => new StreamReader(mockMemoryStream));
+            using AutoMock mock = GetFileManagerMock("312|200|HIT|\"GET /robots.txt HTTP/1.1\"|100.2");
 
             string sourceURL = @"C:\";
             string targetPath = @"C\Git\output-01.txt";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), GetMockClient(sourceURL));
+            Conversor conversor = new(provider, sourceURL, targetPath, mock.Create<IFileManager>(), GetClientMock(sourceURL));
 
             Assert.Contains("Provedor inválido.", conversor.Erros.Sumario);
         }
@@ -56,35 +44,26 @@ namespace ConversorAgora.Test.BO
         [Theory]
         [InlineData("")]
         [InlineData(null)]
-        [InlineData(@"Z:\Test\Testes")]
-        public void RetornaMensagemDeErroDeSourcePathInvalidoQuandoSourcePathNuloOuVazioOuInexistente(string sourceURL)
+        public void RetornaMensagemDeErroDeSourcePathInvalidoQuandoSourcePathNuloOuVazio(string sourceURL)
         {
             string provider = "MINHA CDN";
             string targetPath = @"C:\";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, null, GetMockClient(sourceURL));
+            Conversor conversor = new(provider, sourceURL, targetPath, GetFileManagerMock("").Create<IFileManager>(), GetClientMock(sourceURL));
 
-            Assert.Contains("Caminho do arquivo fonte inválido.", conversor.Erros.Sumario);
+            Assert.Contains("URL do arquivo fonte inválido.", conversor.Erros.Sumario);
         }
 
         [Fact]
         public void RetornaMensagemDeErroDeArquivoVazioQuandoArquivoVazio()
         {
-            using AutoMock mock = AutoMock.GetLoose();
-            string mockFileContent = "";
-            byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
-            MemoryStream mockMemoryStream = new MemoryStream(mockBytes);
-            mock.Mock<IFileManager>()
-                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
-                .Returns(() => new StreamReader(mockMemoryStream));
-
             string provider = "MINHA CDN";
-            string sourceURL = "";
+            string sourceURL = @"https://input-01.txt";
             string targetPath = @"C:\";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, null, GetMockClient(sourceURL));
+            Conversor conversor = new(provider, sourceURL, targetPath, GetFileManagerMock("").Create<IFileManager>(), GetClientMock(sourceURL));
 
-            Assert.Contains("Caminho do arquivo fonte inválido.", conversor.Erros.Sumario);
+            Assert.Contains("Arquivo informado está vazio.", conversor.Erros.Sumario);
         }
 
         [Theory]
@@ -95,14 +74,25 @@ namespace ConversorAgora.Test.BO
             string provider = "MINHA CDN";
             string sourceURL = @"https://input-01.txt";
 
-            Conversor conversor = new(provider, sourceURL, targetPath, null, GetMockClient(sourceURL));
+            Conversor conversor = new(provider, sourceURL, targetPath, GetFileManagerMock("").Create<IFileManager>(), GetClientMock(sourceURL));
 
-            Assert.Contains("Caminho do arquivo alvo inválido.", conversor.Erros.Sumario);
+            Assert.Contains("Caminho do arquivo destino inválido.", conversor.Erros.Sumario);
         }
 
-        public static HttpClient GetMockClient(string sourceURL)
+        public static AutoMock GetFileManagerMock(string mockFileContent)
         {
-            Mock<HttpMessageHandler> httpMessageHandlerMock = new Mock<HttpMessageHandler>();
+            AutoMock mock = AutoMock.GetLoose();
+            byte[] mockBytes = Encoding.UTF8.GetBytes(mockFileContent);
+            MemoryStream mockMemoryStream = new(mockBytes);
+            mock.Mock<IFileManager>()
+                .Setup(fileManager => fileManager.StreamReader(It.IsAny<Stream>()))
+                .Returns(() => new StreamReader(mockMemoryStream));
+            return mock;
+        }
+
+        public static HttpClient GetClientMock(string sourceURL)
+        {
+            Mock<HttpMessageHandler> httpMessageHandlerMock = new();
 
             HttpResponseMessage httpResponseMessage = new()
             {
@@ -115,10 +105,17 @@ namespace ConversorAgora.Test.BO
                     "SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(httpResponseMessage);
 
-            return new HttpClient(httpMessageHandlerMock.Object)
+            if (!string.IsNullOrEmpty(sourceURL)) 
             {
-                BaseAddress = new System.Uri(sourceURL)
-            };
+                return new HttpClient(httpMessageHandlerMock.Object)
+                {
+                    BaseAddress = new Uri(sourceURL)
+                };
+            }
+            else
+            {
+                return new HttpClient(httpMessageHandlerMock.Object);
+            }
         }
     }
 }

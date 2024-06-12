@@ -12,7 +12,7 @@ namespace ConversorAgora.BO
         private readonly string sourceURL;
         private readonly string targetPath;
         private readonly List<Log> logs;
-        private readonly string cabecalho;
+        private string logAgora;
 
         public Conversor(string provider, string sourceURL, string targetPath, IFileManager fileManager, HttpClient sourceClient)
         {
@@ -22,7 +22,6 @@ namespace ConversorAgora.BO
             this.provider = provider;
             this.sourceURL = sourceURL;
             this.targetPath = targetPath;
-            cabecalho = $"#Version: 1.0\r\n#Date: {DateTime.Now}\r\n#Fields: provider http-method status-code uri-path time-taken response-size cache-status";
             Validar();
         }
 
@@ -30,20 +29,15 @@ namespace ConversorAgora.BO
         {
             CarregarLogMinhaCDN();
             GerarLogAgora();
+            SalvarArquivoDestino();
         }
 
-        private void GerarLogAgora()
+        private void SalvarArquivoDestino()
         {
-            string output = cabecalho;
-            foreach (Log log in logs)
-            {
-                output += $"\r\n{log.Provider} {log.HttpMethod} {log.StatusCode} {log.UriPath} {log.TimeTaken} {log.ResponseSize} {log.CacheStatus}";
-            }
-
             try
             {
                 using var outputWriter = fileManager.StreamWriter(targetPath);
-                outputWriter.Write(output);
+                outputWriter.Write(logAgora);
             }
             catch (Exception e)
             {
@@ -55,6 +49,15 @@ namespace ConversorAgora.BO
                 {
                     throw new Exception($"Erro não identificado, contate o administrador: \r\n{e.Message}");
                 }
+            }
+        }
+
+        private void GerarLogAgora()
+        {
+            logAgora = $"#Version: 1.0\r\n#Date: {DateTime.Now}\r\n#Fields: provider http-method status-code uri-path time-taken response-size cache-status";
+            foreach (Log log in logs)
+            {
+                logAgora += $"\r\n{log.Provider} {log.HttpMethod} {log.StatusCode} {log.UriPath} {log.TimeTaken} {log.ResponseSize} {log.CacheStatus}";
             }
         }
 
@@ -91,14 +94,14 @@ namespace ConversorAgora.BO
 
             if (ValidarSourceURL()) ValidarArquivoVazio();
 
-            if (string.IsNullOrEmpty(targetPath)) Erros.RegistrarErro("Caminho do arquivo alvo inválido.");
+            if (string.IsNullOrEmpty(targetPath)) Erros.RegistrarErro("Caminho do arquivo destino inválido.");
         }
 
         private bool ValidarSourceURL()
         {
             try
             {
-                return GetSourceContent != null;
+                return GetSourceContent() != null;
             }
             catch (Exception)
             {
