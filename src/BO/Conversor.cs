@@ -12,7 +12,7 @@ namespace ConversorAgora.BO
         private readonly string sourceURL;
         private readonly string targetPath;
         private readonly List<Log> logs;
-        private string logAgora;
+        private string? logAgora;
 
         public Conversor(string provider, string sourceURL, string targetPath, IFileManager fileManager, HttpClient sourceClient)
         {
