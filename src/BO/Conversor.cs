@@ -6,14 +6,16 @@ namespace ConversorAgora.BO
 {
     public class Conversor: Valida
     {
+        IFileManager fileManager;
         private readonly string provider;
         private readonly string sourceURL;
         private readonly string targetPath;
         private readonly List<Log> logs;
         private readonly string cabecalho;
 
-        public Conversor(string provider, string sourceURL, string targetPath)
+        public Conversor(string provider, string sourceURL, string targetPath, IFileManager fileManager)
         {
+            this.fileManager = fileManager;
             logs = new List<Log>();
             this.provider = provider;
             this.sourceURL = sourceURL;
@@ -38,24 +40,25 @@ namespace ConversorAgora.BO
 
             try
             {
-                using StreamWriter outputWriter = new(targetPath);
+                using var outputWriter = fileManager.StreamWriter(targetPath);
                 outputWriter.Write(output);
             }
             catch (Exception e)
             {
-                switch (e.GetType().ToString())
+                if (e.GetType().ToString().Contains("System.IO.DirectoryNotFoundException"))
                 {
-                    case "System.IO.DirectoryNotFoundException":
-                        throw new Exception("Não foi possível criar o arquivo no caminho especificado, verifique o parâmetro e tente novamente.");
-                    default:
-                        throw new Exception($"Erro não identificado, contate o administrador: \r\n{e.Message}");
+                    throw new Exception("Não foi possível criar o arquivo no caminho especificado, verifique o parâmetro e tente novamente.");
+                }
+                else
+                {
+                    throw new Exception($"Erro não identificado, contate o administrador: \r\n{e.Message}");
                 }
             }
         }
 
         public void CarregarLogMinhaCDN()
         {
-            using StreamReader sr = new(sourceURL);
+            using var sr = fileManager.StreamReader(sourceURL);
             while(!sr.EndOfStream)
             {
                 string? line = sr.ReadLine();
@@ -77,21 +80,23 @@ namespace ConversorAgora.BO
         protected override void Validar()
         {
             if (string.IsNullOrEmpty(provider)) Erros.RegistrarErro("Provedor inválido.");
-            ValidarArquivoFonte();
-            if (Uri.IsWellFormedUriString(targetPath, UriKind.Relative)) Erros.RegistrarErro("Caminho do arquivo alvo inválido.");
-        }
 
-        private void ValidarArquivoFonte()
-        {
             if (Path.Exists(sourceURL))
             {
-                using StreamReader sr = new(sourceURL);
-                if (string.IsNullOrEmpty(sr.ReadToEnd())) Erros.RegistrarErro("Arquivo informado está vazio.");
+                ValidarArquivoVazio();
             }
             else
             {
                 Erros.RegistrarErro("Caminho do arquivo fonte inválido.");
             }
+
+            if (string.IsNullOrEmpty(targetPath)) Erros.RegistrarErro("Caminho do arquivo alvo inválido.");
+        }
+
+        private void ValidarArquivoVazio()
+        {
+            using var sr = fileManager.StreamReader(sourceURL);
+            if (string.IsNullOrEmpty(sr.ReadToEnd())) Erros.RegistrarErro("Arquivo informado está vazio.");
         }
 
         public void ValidarLogs()

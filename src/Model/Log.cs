@@ -30,7 +30,7 @@ namespace ConversorAgora.Model
             HttpMethod = httpMethod;
             StatusCode = statusCode;
             UriPath = uriPath;
-            TimeTaken = timeTaken;
+            TimeTaken = timeTaken?[..3];
             ResponseSize = responseSize;
             CacheStatus = cacheStatus;
             Validar();
@@ -49,7 +49,7 @@ namespace ConversorAgora.Model
 
         private static bool ValidarStatusCode(string statusCode)
         {
-            return int.TryParse(statusCode, out int code) && code >= 100 && code < 600;
+            return int.TryParse(statusCode, out int code) && code >= 100 && code <= 599;
         }
 
         private static bool ValidarHttpMethod(string httpMethod)
