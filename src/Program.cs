@@ -3,8 +3,14 @@ using ConversorAgora.Model;
 
 try
 {
-    string sourceURL = args.Length > 0 ? args.First() : @"C:\Git\input-01.txt";
-    string targetPath = args.Length > 0 ? args.Last() : @"C:\Git\output-01.txt";
+    if (!ValidaArgumentos())
+    {
+        Console.WriteLine("Argumentos inválidos");
+        return;
+    }
+
+    string sourceURL = args.First();
+    string targetPath = args.Last();
     FileManager fileManager = new();
 
     Conversor conversor = new("MINHA CDN", sourceURL, targetPath, fileManager);
@@ -18,4 +24,9 @@ try
 catch (Exception e)
 {
     Console.WriteLine(e.Message);
+}
+
+bool ValidaArgumentos()
+{
+    return args.Length == 2 && !string.IsNullOrEmpty(args.First()) && !string.IsNullOrEmpty(args.Last());
 }
